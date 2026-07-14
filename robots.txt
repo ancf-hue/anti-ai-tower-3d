@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /private/
+
+Sitemap: https://anti-ai-tower-3d.netlify.app/sitemap.xml
+
+Host: https://anti-ai-tower-3d.netlify.app
