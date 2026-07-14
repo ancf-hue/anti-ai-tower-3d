@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <title>Башня 3D — Stack Tower</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, sans-serif; user-select: none; }
+        body { background: #0a0a1a; color: white; overflow: hidden; }
+        #game-container { position: relative; width: 100vw; height: 100vh; }
+        canvas { display: block; }
+
+        .screen {
+            position: absolute; inset: 0;
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            background: rgba(10, 10, 30, 0.92);
+            z-index: 10; transition: opacity 0.4s;
+            padding: 20px; text-align: center;
+            overflow-y: auto;
+        }
+        .hidden { opacity: 0; pointer-events: none; }
+
+        .favicon-top {
+            width: 80px; height: 80px;
+            object-fit: contain;
+            margin-bottom: 15px;
+            filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.6));
+            animation: faviconPulse 2s ease-in-out infinite alternate;
+        }
+        @keyframes faviconPulse {
+            from { filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.4)); transform: scale(1); }
+            to { filter: drop-shadow(0 0 25px rgba(255, 215, 0, 0.9)); transform: scale(1.05); }
+        }
+
+        .logo-img {
+            width: 180px; height: 180px; object-fit: contain;
+            margin-bottom: 20px; border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(233, 69, 96, 0.5);
+        }
+
+        h1 {
+            font-size: 3.5rem; margin-bottom: 10px;
+            background: linear-gradient(90deg, #ffd700, #ff6b6b, #00f5d4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 3px;
+        }
+
+        .subtitle { font-size: 1.1rem; color: #aaa; margin-bottom: 30px; max-width: 500px; line-height: 1.6; }
+
+        .btn {
+            background: linear-gradient(45deg, #e94560, #950740);
+            color: white; border: none;
+            padding: 18px 50px; font-size: 1.3rem; font-weight: bold;
+            border-radius: 30px; cursor: pointer; margin: 10px;
+            min-width: 300px; position: relative; overflow: hidden;
+            box-shadow: 0 5px 20px rgba(233, 69, 96, 0.5), inset 0 2px 10px rgba(255,255,255,0.3);
+            animation: glow 2s ease-in-out infinite alternate;
+            transition: transform 0.2s;
+        }
+        .btn:before {
+            content: ''; position: absolute;
+            top: -50%; left: -50%; width: 200%; height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.4), transparent);
+            transform: rotate(45deg); animation: shimmer 3s infinite;
+        }
+        .btn span { position: relative; z-index: 2; }
+        @keyframes glow {
+            from { box-shadow: 0 5px 20px rgba(233, 69, 96, 0.5), 0 0 20px rgba(233, 69, 96, 0.6); }
+            to { box-shadow: 0 8px 30px rgba(233, 69, 96, 0.8), 0 0 50px rgba(233, 69, 96, 1); }
+        }
+        @keyframes shimmer {
+            0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+            100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+        }
+        .btn:hover { transform: translateY(-3px) scale(1.05); }
+        .btn-secondary { background: linear-gradient(45deg, #0f3460, #16213e); box-shadow: 0 5px 20px rgba(15, 52, 96, 0.5), inset 0 2px 10px rgba(255,255,255,0.2); }
+
+        .support-section {
+            margin-top: 30px; padding: 25px;
+            background: rgba(255,255,255,0.05); border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.1);
+            max-width: 500px; backdrop-filter: blur(10px);
+        }
+        .support-title {
+            font-size: 1.4rem; margin-bottom: 15px;
+            background: linear-gradient(90deg, #ffd700, #00bfff);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            font-weight: bold;
+        }
+        .support-text { font-size: 0.9rem; color: #aaa; margin-bottom: 12px; line-height: 1.5; }
+        .phone-number {
+            background: linear-gradient(45deg, #00bfff, #00f5d4);
+            padding: 12px 20px; border-radius: 15px;
+            font-size: 1.1rem; font-weight: bold; color: #1a1a2e;
+            margin: 10px 0; cursor: pointer; display: inline-block;
+            box-shadow: 0 5px 15px rgba(0, 245, 212, 0.4);
+            transition: transform 0.2s;
+        }
+        .phone-number:hover { transform: scale(1.05); }
+        .support-link {
+            display: block; margin-top: 15px;
+            color: #00f5d4; text-decoration: none;
+            font-size: 0.95rem; transition: all 0.3s;
+        }
+        .support-link:hover { color: #ffd700; text-shadow: 0 0 10px rgba(0, 245, 212, 0.8); }
+
+        #hud {
+            position: absolute; top: 20px; left: 0; width: 100%;
+            display: flex; justify-content: space-between; padding: 0 25px;
+            z-index: 5; pointer-events: none;
+        }
+        .hud-panel {
+            background: rgba(22, 22, 46, 0.85);
+            padding: 12px 22px; border-radius: 15px;
+            border: 1px solid rgba(255,255,255,0.15);
+            backdrop-filter: blur(10px);
+            font-size: 1.1rem; font-weight: bold;
+        }
+        #score-display { color: #ffd700; }
+        #height-display { color: #00f5d4; }
+
+        #hud-favicon {
+            position: absolute;
+            top: 15px; left: 50%;
+            transform: translateX(-50%);
+            width: 50px; height: 50px;
+            object-fit: contain;
+            filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.7));
+            z-index: 6;
+            animation: faviconPulse 2s ease-in-out infinite alternate;
+            pointer-events: none;
+        }
+
+        #click-hint {
+            position: absolute; bottom: 30px; left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.7); padding: 12px 25px;
+            border-radius: 25px; font-size: 1rem;
+            color: #ffd700; z-index: 5;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 0.7; transform: translateX(-50%) scale(1); }
+            50% { opacity: 1; transform: translateX(-50%) scale(1.05); }
+        }
+
+        .snowflake {
+            position: absolute; top: -20px; color: white;
+            pointer-events: none; z-index: 2;
+            text-shadow: 0 0 8px rgba(255,255,255,0.9);
+            animation: fall linear infinite;
+        }
+        @keyframes fall {
+            0% { transform: translateY(0) translateX(0) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(100vh) translateX(80px) rotate(360deg); opacity: 0.3; }
+        }
+
+        #perfect-text {
+            position: absolute; top: 35%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 4rem; font-weight: bold;
+            color: #ffd700; text-shadow: 0 0 30px rgba(255, 215, 0, 0.8);
+            opacity: 0; pointer-events: none; z-index: 6;
+            transition: opacity 0.3s;
+        }
+        #perfect-text.show {
+            opacity: 1;
+            animation: perfectPop 1.2s ease-out forwards;
+        }
+        @keyframes perfectPop {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+            30% { transform: translate(-50%, -50%) scale(1.4); opacity: 1; }
+            70% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+            100% { transform: translate(-50%, -60%) scale(1); opacity: 0; }
+        }
+
+        #gameover-title {
+            font-size: 3rem; margin-bottom: 20px;
+            background: linear-gradient(90deg, #ff6b6b, #ffd700);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        #gameover-msg { font-size: 1.3rem; color: #ccc; margin-bottom: 30px; }
+        #final-score { font-size: 2rem; color: #00f5d4; margin-bottom: 20px; font-weight: bold; }
+
+        #voice-subtitle {
+            position: absolute;
+            bottom: 90px; left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            padding: 10px 25px;
+            border-radius: 20px;
+            font-size: 1.3rem;
+            color: #ffd700;
+            z-index: 6;
+            opacity: 0;
+            transition: opacity 0.3s;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            pointer-events: none;
+            white-space: nowrap;
+        }
+        #voice-subtitle.show { opacity: 1; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <img src="favicon.ico" alt="" id="hud-favicon" style="display:none">
+
+    <div id="hud" style="display:none">
+        <div class="hud-panel">🏆 Счёт: <span id="score-display">0</span></div>
+        <div class="hud-panel">🧱 Высота: <span id="height-display">1</span></div>
+    </div>
+
+    <div id="click-hint" style="display:none">🖱️ КЛИКНИТЕ чтобы поставить блок</div>
+    <div id="perfect-text">ИДЕАЛЬНО! ✨</div>
+    <div id="voice-subtitle"></div>
+
+    <div id="menu-screen" class="screen">
+        <img src="favicon.ico" alt="Favicon" class="favicon-top" onerror="this.style.display='none'">
+        <img src="logo.png" alt="Logo" class="logo-img" onerror="this.style.display='none'">
+        <h1>БАШНЯ 3D</h1>
+        <p class="subtitle">
+            Ставьте блоки друг на друга точно в цель!<br>
+            Свисающая часть отрезается и падает.<br>
+            <strong>Чем точнее — тем выше башня!</strong>
+        </p>
+        <button class="btn" onclick="startGame()"><span>🎮 НАЧАТЬ ИГРУ</span></button>
+
+        <div class="support-section">
+            <div class="support-title">🤝 ПОДДЕРЖАТЬ ПРОЕКТ 💙</div>
+            <div class="support-text">
+                Приложение бесплатное. Было и останется.<br><br>
+                Если проект помог вам или вашим близким — можете поддержать разработку добровольным переводом.
+            </div>
+            <div class="phone-number" onclick="copyPhone()">📱 8-920-227-56-76 📋 Копировать номер ✅</div>
+            <div class="support-text" style="font-size: 0.85rem;">Деньги придут мгновенно. Без комиссии. Безопасно.</div>
+            <div class="support-text" style="color: #00f5d4;">❤️ Спасибо за поддержку!</div>
+            <a href="https://ancf-hue.github.io/" target="_blank" class="support-link">🌟 👉 Каталог бесплатных офлайн-приложений Anti-AI Shield</a>
+        </div>
+    </div>
+
+    <div id="gameover-screen" class="screen hidden">
+        <img src="favicon.ico" alt="Favicon" class="favicon-top" onerror="this.style.display='none'">
+        <img src="logo.png" alt="Logo" class="logo-img" onerror="this.style.display='none'">
+        <h1 id="gameover-title">💥 БАШНЯ УПАЛА!</h1>
+        <div id="final-score">Высота: 0</div>
+        <p id="gameover-msg">Попробуйте ещё раз!</p>
+        <button class="btn" onclick="restartGame()"><span>🔄 Играть снова</span></button>
+        <button class="btn btn-secondary" onclick="backToMenu()"><span>🏠 В меню</span></button>
+    </div>
+</div>
+
+<script type="importmap">
+{
+    "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ===== ЗВУКОВАЯ СИСТЕМА =====
+// Эффекты генерируются через Web Audio API (без файлов)
+// Голосовые фразы загружаются из MP3 файлов
+
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+// Голосовые MP3 файлы
+const voiceFiles = {
+    start: 'voice_start.mp3',
+    perfect: 'voice_perfect.mp3',
+    great: 'voice_great.mp3',
+    good: 'voice_good.mp3',
+    oops: 'voice_oops.mp3',
+    gameover: 'voice_gameover.mp3',
+    tryagain: 'voice_tryagain.mp3',
+    newrecord: 'voice_newrecord.mp3',
+    amazing: 'voice_amazing.mp3',
+    careful: 'voice_careful.mp3'
+};
+
+const voiceSubtitles = {
+    start: '🎬 Начинаем!',
+    perfect: '✨ Идеально!',
+    great: '👍 Отлично!',
+    good: '😊 Хорошо!',
+    oops: '😮 Ой!',
+    gameover: '💥 Башня упала!',
+    tryagain: '🔄 Попробуй ещё раз!',
+    newrecord: '🏆 Новый рекорд!',
+    amazing: '🤩 Потрясающе!',
+    careful: '⚠️ Осторожнее!'
+};
+
+const voicePriority = {
+    gameover: 10, oops: 8, newrecord: 7, amazing: 6, careful: 5,
+    perfect: 4, great: 3, good: 2, tryagain: 1, start: 1
+};
+
+let bestHeight = parseInt(localStorage.getItem('towerBest') || '0');
+let tickTimer = 0;
+
+const voiceQueue = [];
+let currentVoice = null;
+let isVoicePlaying = false;
+const voiceElements = {};
+const activeSources = new Set();
+
+// ===== ЗАГРУЗКА ГОЛОСОВЫХ MP3 =====
+async function loadVoiceSounds() {
+    for (const [key, file] of Object.entries(voiceFiles)) {
+        const audio = new Audio(file);
+        audio.preload = 'auto';
+        audio.volume = 0.9;
+        voiceElements[key] = audio;
+    }
+    console.log("✅ Голосовые MP3 загружены");
+}
+
+// ===== ГЕНЕРАЦИЯ ЗВУКОВЫХ ЭФФЕКТОВ (Web Audio API) =====
+
+// Короткий щелчок (как кнопка мыши)
+function playClick() {
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(1500, now);
+    osc.frequency.exponentialRampToValueAtTime(500, now + 0.05);
+    gain.gain.setValueAtTime(0.3, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+    osc.start(now);
+    osc.stop(now + 0.05);
+}
+
+// Глухой стук дерева/пластика (блок ставится)
+function playPlace() {
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(180, now);
+    osc.frequency.exponentialRampToValueAtTime(80, now + 0.15);
+    gain.gain.setValueAtTime(0.5, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+    osc.start(now);
+    osc.stop(now + 0.2);
+    
+    // Добавляем шум удара
+    const noise = audioCtx.createBufferSource();
+    const noiseBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.1, audioCtx.sampleRate);
+    const data = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 2);
+    }
+    noise.buffer = noiseBuffer;
+    const noiseGain = audioCtx.createGain();
+    noise.connect(noiseGain);
+    noiseGain.connect(audioCtx.destination);
+    noiseGain.gain.setValueAtTime(0.2, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+    noise.start(now);
+}
+
+// Колокольчик + аккорд (до-ми-соль)
+function playPerfect() {
+    const now = audioCtx.currentTime;
+    const notes = [523.25, 659.25, 783.99]; // C5, E5, G5
+    notes.forEach((freq, i) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now);
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.3, now + 0.02 + i * 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+        osc.start(now);
+        osc.stop(now + 0.5);
+    });
+    // Колокольчик сверху
+    const bell = audioCtx.createOscillator();
+    const bellGain = audioCtx.createGain();
+    bell.connect(bellGain);
+    bellGain.connect(audioCtx.destination);
+    bell.type = 'triangle';
+    bell.frequency.setValueAtTime(1568, now); // G6
+    bellGain.gain.setValueAtTime(0.2, now);
+    bellGain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+    bell.start(now);
+    bell.stop(now + 0.6);
+}
+
+// Звук разреза (свист + щелчок)
+function playCut() {
+    const now = audioCtx.currentTime;
+    // Свист — свип частоты
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(2000, now);
+    osc.frequency.exponentialRampToValueAtTime(400, now + 0.15);
+    gain.gain.setValueAtTime(0.15, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+    osc.start(now);
+    osc.stop(now + 0.15);
+    // Щелчок
+    const click = audioCtx.createOscillator();
+    const clickGain = audioCtx.createGain();
+    click.connect(clickGain);
+    clickGain.connect(audioCtx.destination);
+    click.type = 'square';
+    click.frequency.setValueAtTime(1200, now + 0.15);
+    clickGain.gain.setValueAtTime(0.3, now + 0.15);
+    clickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+    click.start(now + 0.15);
+    click.stop(now + 0.2);
+}
+
+// Нарастающий шум падения + удар
+function playFall() {
+    const now = audioCtx.currentTime;
+    // Шум падения
+    const noise = audioCtx.createBufferSource();
+    const noiseBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.8, audioCtx.sampleRate);
+    const data = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) {
+        const t = i / data.length;
+        data[i] = (Math.random() * 2 - 1) * t * 0.5;
+    }
+    noise.buffer = noiseBuffer;
+    const noiseGain = audioCtx.createGain();
+    noise.connect(noiseGain);
+    noiseGain.connect(audioCtx.destination);
+    noiseGain.gain.setValueAtTime(0.1, now);
+    noiseGain.gain.linearRampToValueAtTime(0.5, now + 0.7);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+    noise.start(now);
+    
+    // Удар в конце
+    const hit = audioCtx.createOscillator();
+    const hitGain = audioCtx.createGain();
+    hit.connect(hitGain);
+    hitGain.connect(audioCtx.destination);
+    hit.type = 'sine';
+    hit.frequency.setValueAtTime(120, now + 0.7);
+    hit.frequency.exponentialRampToValueAtTime(40, now + 0.9);
+    hitGain.gain.setValueAtTime(0.6, now + 0.7);
+    hitGain.gain.exponentialRampToValueAtTime(0.001, now + 1.0);
+    hit.start(now + 0.7);
+    hit.stop(now + 1.0);
+}
+
+// Нисходящая мелодия (ре-си-соль-ми)
+function playGameover() {
+    const now = audioCtx.currentTime;
+    const notes = [
+        { freq: 293.66, time: 0 },     // D4
+        { freq: 246.94, time: 0.3 },   // B3
+        { freq: 196.00, time: 0.6 },   // G3
+        { freq: 164.81, time: 0.9 }    // E3
+    ];
+    notes.forEach(note => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(note.freq, now + note.time);
+        gain.gain.setValueAtTime(0, now + note.time);
+        gain.gain.linearRampToValueAtTime(0.4, now + note.time + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + note.time + 0.35);
+        osc.start(now + note.time);
+        osc.stop(now + note.time + 0.35);
+    });
+}
+
+// Очень короткий тик (метроном)
+function playTick() {
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(800, now);
+    gain.gain.setValueAtTime(0.15, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+    osc.start(now);
+    osc.stop(now + 0.03);
+}
+
+// Универсальная функция для эффектов
+function playSfx(name) {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    switch(name) {
+        case 'click': playClick(); break;
+        case 'place': playPlace(); break;
+        case 'perfect': playPerfect(); break;
+        case 'cut': playCut(); break;
+        case 'fall': playFall(); break;
+        case 'gameover': playGameover(); break;
+        case 'tick': playTick(); break;
+    }
+}
+
+// ===== ГОЛОСОВЫЕ ФРАЗЫ =====
+function playVoice(name) {
+    const priority = voicePriority[name] || 0;
+    const exists = voiceQueue.find(v => v.name === name);
+    if (exists) return;
+    
+    if (isVoicePlaying && currentVoice && voicePriority[currentVoice] >= priority) {
+        const queueHasHigher = voiceQueue.some(v => voicePriority[v.name] >= priority);
+        if (queueHasHigher) return;
+    }
+    
+    voiceQueue.push({ name, priority });
+    voiceQueue.sort((a, b) => b.priority - a.priority);
+    
+    if (!isVoicePlaying) processVoiceQueue();
+}
+
+function processVoiceQueue() {
+    if (voiceQueue.length === 0) {
+        isVoicePlaying = false;
+        currentVoice = null;
+        return;
+    }
+    
+    isVoicePlaying = true;
+    const item = voiceQueue.shift();
+    currentVoice = item.name;
+    
+    showVoiceSubtitle(item.name);
+    
+    const audio = voiceElements[item.name];
+    if (!audio) {
+        processVoiceQueue();
+        return;
+    }
+    
+    try {
+        audio.currentTime = 0;
+        audio.play().catch(() => processVoiceQueue());
+        audio.onended = () => {
+            currentVoice = null;
+            setTimeout(() => processVoiceQueue(), 200);
+        };
+    } catch(e) {
+        processVoiceQueue();
+    }
+}
+
+function clearVoiceQueue() {
+    voiceQueue.length = 0;
+    Object.values(voiceElements).forEach(audio => {
+        try {
+            audio.onended = null;
+            audio.pause();
+            audio.currentTime = 0;
+        } catch(e) {}
+    });
+    currentVoice = null;
+    isVoicePlaying = false;
+}
+
+let subtitleTimer = null;
+function showVoiceSubtitle(name) {
+    const el = document.getElementById('voice-subtitle');
+    if (!voiceSubtitles[name]) return;
+    el.textContent = voiceSubtitles[name];
+    el.classList.add('show');
+    if (subtitleTimer) clearTimeout(subtitleTimer);
+    subtitleTimer = setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+// ===== ПЕРЕМЕННЫЕ ИГРЫ =====
+let scene, camera, renderer, controls;
+let blocks = [];
+let currentBlock = null;
+let fallingBlocks = [];
+let gameState = 'menu';
+let score = 0;
+let height = 1;
+let blockIndex = 0;
+let direction = 'x';
+let speed = 0.08;
+let cameraTargetY = 5;
+let perfectShown = false;
+let perfectTimer = null;
+let comboCount = 0;
+
+const BLOCK_HEIGHT = 1;
+const INITIAL_SIZE = 3;
+const PERFECT_THRESHOLD = 0.15;
+const COLORS = [
+    0xe94560, 0x00f5d4, 0xffd700, 0x9b59b6,
+    0x3498db, 0x1abc9c, 0xe67e22, 0xf39c12,
+    0x2ecc71, 0xe74c3c, 0x16a085, 0x8e44ad
+];
+
+// ===== ИНИЦИАЛИЗАЦИЯ =====
+async function init() {
+    await loadVoiceSounds();
+
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x1a1a2e);
+    scene.fog = new THREE.Fog(0x1a1a2e, 20, 60);
+
+    camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 1000);
+    camera.position.set(8, 6, 8);
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.setPixelRatio(devicePixelRatio);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    document.getElementById('game-container').appendChild(renderer.domElement);
+
+    controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.enablePan = false;
+    controls.minDistance = 5;
+    controls.maxDistance = 25;
+    controls.maxPolarAngle = Math.PI / 2.1;
+
+    const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambient);
+
+    const sun = new THREE.DirectionalLight(0xffffff, 1.2);
+    sun.position.set(10, 20, 10);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.camera.left = -20;
+    sun.shadow.camera.right = 20;
+    sun.shadow.camera.top = 20;
+    sun.shadow.camera.bottom = -20;
+    scene.add(sun);
+
+    const fill = new THREE.DirectionalLight(0x4488ff, 0.4);
+    fill.position.set(-5, 5, -5);
+    scene.add(fill);
+
+    const groundGeo = new THREE.PlaneGeometry(100, 100);
+    const groundMat = new THREE.MeshStandardMaterial({ color: 0x2a2a4a, roughness: 0.9 });
+    const ground = new THREE.Mesh(groundGeo, groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    const grid = new THREE.GridHelper(100, 50, 0x444466, 0x333355);
+    grid.position.y = 0.01;
+    scene.add(grid);
+
+    window.addEventListener('resize', onResize);
+    window.addEventListener('click', onClick);
+    window.addEventListener('touchstart', onClick);
+
+    animate();
+}
+
+function onResize() {
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+}
+
+function createBlock(x, y, z, sizeX, sizeZ, colorIndex) {
+    const geometry = new THREE.BoxGeometry(sizeX, BLOCK_HEIGHT, sizeZ);
+    const color = COLORS[colorIndex % COLORS.length];
+    const material = new THREE.MeshStandardMaterial({
+        color: color,
+        roughness: 0.3,
+        metalness: 0.2,
+        emissive: color,
+        emissiveIntensity: 0.1
+    });
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.set(x, y, z);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    scene.add(mesh);
+    return { mesh, sizeX, sizeZ, colorIndex };
+}
+
+window.startGame = function() {
+    playSfx('click');
+    clearVoiceQueue();
+    document.getElementById('menu-screen').classList.add('hidden');
+    document.getElementById('hud').style.display = 'flex';
+    document.getElementById('hud-favicon').style.display = 'block';
+    document.getElementById('click-hint').style.display = 'block';
+    gameState = 'playing';
+    score = 0;
+    height = 1;
+    blockIndex = 0;
+    speed = 0.08;
+    direction = 'x';
+    perfectShown = false;
+    comboCount = 0;
+
+    blocks.forEach(b => scene.remove(b.mesh));
+    fallingBlocks.forEach(b => scene.remove(b.mesh));
+    blocks = [];
+    fallingBlocks = [];
+    if (currentBlock) { scene.remove(currentBlock.mesh); currentBlock = null; }
+
+    const base = createBlock(0, BLOCK_HEIGHT / 2, 0, INITIAL_SIZE, INITIAL_SIZE, 0);
+    blocks.push(base);
+
+    updateHUD();
+    spawnNextBlock();
+    createSnow();
+
+    setTimeout(() => playVoice('start'), 300);
+};
+
+function spawnNextBlock() {
+    const last = blocks[blocks.length - 1];
+    const y = last.mesh.position.y + BLOCK_HEIGHT;
+    let x = last.mesh.position.x;
+    let z = last.mesh.position.z;
+
+    direction = blockIndex % 2 === 0 ? 'x' : 'z';
+
+    if (direction === 'x') x = -6;
+    else z = -6;
+
+    currentBlock = createBlock(x, y, z, last.sizeX, last.sizeZ, blockIndex + 1);
+    currentBlock.direction = direction;
+    currentBlock.moving = true;
+    perfectShown = false;
+    tickTimer = 0;
+
+    if (blocks.length >= 15 && Math.random() < 0.3) {
+        setTimeout(() => playVoice('careful'), 500);
+    }
+}
+
+function onClick(e) {
+    if (e.target.tagName === 'BUTTON' || e.target.closest('.screen') || e.target.closest('.support-section')) return;
+    if (gameState !== 'playing' || !currentBlock || !currentBlock.moving) return;
+
+    currentBlock.moving = false;
+    const last = blocks[blocks.length - 1];
+    const overlap = calculateOverlap(currentBlock, last);
+
+    if (overlap.sizeX <= 0.1 || overlap.sizeZ <= 0.1) {
+        playSfx('fall');
+        setTimeout(() => playVoice('oops'), 400);
+        makeBlockFall(currentBlock);
+        setTimeout(() => gameOver(), 1200);
+        return;
+    }
+
+    if (overlap.cutSizeX > 0.1 || overlap.cutSizeZ > 0.1) {
+        const cutBlock = createBlock(
+            overlap.cutX, overlap.cutY, overlap.cutZ,
+            overlap.cutSizeX, overlap.cutSizeZ,
+            currentBlock.colorIndex
+        );
+        makeBlockFall(cutBlock);
+        playSfx('cut');
+    }
+
+    currentBlock.sizeX = overlap.sizeX;
+    currentBlock.sizeZ = overlap.sizeZ;
+
+    scene.remove(currentBlock.mesh);
+    const newGeo = new THREE.BoxGeometry(currentBlock.sizeX, BLOCK_HEIGHT, currentBlock.sizeZ);
+    const color = COLORS[currentBlock.colorIndex % COLORS.length];
+    const newMat = new THREE.MeshStandardMaterial({
+        color: color, roughness: 0.3, metalness: 0.2,
+        emissive: color, emissiveIntensity: 0.1
+    });
+    const newMesh = new THREE.Mesh(newGeo, newMat);
+    newMesh.position.set(overlap.x, overlap.y, overlap.z);
+    newMesh.castShadow = true;
+    newMesh.receiveShadow = true;
+    scene.add(newMesh);
+    currentBlock.mesh = newMesh;
+
+    blocks.push(currentBlock);
+    currentBlock = null;
+
+    if (overlap.perfect && !perfectShown) {
+        perfectShown = true;
+        comboCount++;
+        score += 10;
+        showPerfect();
+        playSfx('perfect');
+
+        if (comboCount >= 5) setTimeout(() => playVoice('amazing'), 200);
+        else if (comboCount >= 3) setTimeout(() => playVoice('great'), 200);
+        else setTimeout(() => playVoice('perfect'), 200);
+    } else {
+        comboCount = 0;
+        score += 1;
+        playSfx('place');
+
+        const accuracy = Math.min(overlap.sizeX / INITIAL_SIZE, overlap.sizeZ / INITIAL_SIZE);
+        if (accuracy > 0.85) setTimeout(() => playVoice('great'), 150);
+        else if (accuracy > 0.6) setTimeout(() => playVoice('good'), 150);
+        else if (accuracy < 0.3) setTimeout(() => playVoice('oops'), 150);
+    }
+
+    height = blocks.length;
+    blockIndex++;
+    speed = Math.min(0.25, 0.08 + blockIndex * 0.008);
+
+    if (height > bestHeight) {
+        bestHeight = height;
+        localStorage.setItem('towerBest', bestHeight.toString());
+        setTimeout(() => playVoice('newrecord'), 800);
+    }
+
+    if (height === 20 || height === 30 || height === 50) {
+        setTimeout(() => playVoice('amazing'), 500);
+    }
+
+    updateHUD();
+
+    setTimeout(() => {
+        if (gameState === 'playing') spawnNextBlock();
+    }, 400);
+}
+
+function calculateOverlap(current, last) {
+    const dx = current.mesh.position.x - last.mesh.position.x;
+    const dz = current.mesh.position.z - last.mesh.position.z;
+
+    const sizeX = current.sizeX - Math.abs(dx);
+    const sizeZ = current.sizeZ - Math.abs(dz);
+
+    const x = last.mesh.position.x + dx / 2;
+    const z = last.mesh.position.z + dz / 2;
+    const y = current.mesh.position.y;
+
+    let cutX = x, cutZ = z, cutSizeX = 0, cutSizeZ = 0;
+
+    if (current.direction === 'x') {
+        if (dx > 0) {
+            cutSizeX = Math.abs(dx);
+            cutSizeZ = current.sizeZ;
+            cutX = x + (current.sizeX + cutSizeX) / 2;
+        } else {
+            cutSizeX = Math.abs(dx);
+            cutSizeZ = current.sizeZ;
+            cutX = x - (current.sizeX + cutSizeX) / 2;
+        }
+    } else {
+        if (dz > 0) {
+            cutSizeZ = Math.abs(dz);
+            cutSizeX = current.sizeX;
+            cutZ = z + (current.sizeZ + cutSizeZ) / 2;
+        } else {
+            cutSizeZ = Math.abs(dz);
+            cutSizeX = current.sizeX;
+            cutZ = z - (current.sizeZ + cutSizeZ) / 2;
+        }
+    }
+
+    const perfect = Math.abs(dx) < PERFECT_THRESHOLD && Math.abs(dz) < PERFECT_THRESHOLD;
+
+    return { sizeX, sizeZ, x, z, y, cutX, cutZ, cutSizeX, cutSizeZ, cutY: y, perfect };
+}
+
+function makeBlockFall(block) {
+    fallingBlocks.push(block);
+    block.velocityY = 0;
+    block.velocityX = (Math.random() - 0.5) * 0.1;
+    block.velocityZ = (Math.random() - 0.5) * 0.1;
+    block.rotSpeedX = (Math.random() - 0.5) * 0.15;
+    block.rotSpeedZ = (Math.random() - 0.5) * 0.15;
+    block.falling = true;
+}
+
+function showPerfect() {
+    const el = document.getElementById('perfect-text');
+    el.classList.remove('show');
+    void el.offsetWidth;
+    el.classList.add('show');
+
+    if (perfectTimer) clearTimeout(perfectTimer);
+    perfectTimer = setTimeout(() => el.classList.remove('show'), 1300);
+}
+
+function gameOver() {
+    gameState = 'gameover';
+    document.getElementById('click-hint').style.display = 'none';
+    document.getElementById('hud').style.display = 'none';
+    document.getElementById('hud-favicon').style.display = 'none';
+    document.getElementById('gameover-screen').classList.remove('hidden');
+    document.getElementById('final-score').textContent = `🧱 Высота: ${height} | 🏆 Счёт: ${score} | 🏅 Рекорд: ${bestHeight}`;
+    removeSnow();
+
+    playSfx('gameover');
+    clearVoiceQueue();
+    setTimeout(() => playVoice('gameover'), 800);
+}
+
+window.restartGame = function() {
+    playSfx('click');
+    clearVoiceQueue();
+    setTimeout(() => playVoice('tryagain'), 200);
+    document.getElementById('gameover-screen').classList.add('hidden');
+    startGame();
+};
+
+window.backToMenu = function() {
+    playSfx('click');
+    clearVoiceQueue();
+    document.getElementById('gameover-screen').classList.add('hidden');
+    document.getElementById('menu-screen').classList.remove('hidden');
+    document.getElementById('hud').style.display = 'none';
+    document.getElementById('hud-favicon').style.display = 'none';
+    document.getElementById('click-hint').style.display = 'none';
+    gameState = 'menu';
+    removeSnow();
+};
+
+function updateHUD() {
+    document.getElementById('score-display').textContent = score;
+    document.getElementById('height-display').textContent = height;
+}
+
+function createSnow() {
+    removeSnow();
+    const container = document.getElementById('game-container');
+    const symbols = ['❄', '❅', '❆', '•'];
+    for (let i = 0; i < 50; i++) {
+        const s = document.createElement('div');
+        s.className = 'snowflake';
+        s.innerHTML = symbols[Math.floor(Math.random() * symbols.length)];
+        s.style.left = Math.random() * 100 + '%';
+        s.style.animationDuration = (Math.random() * 4 + 4) + 's';
+        s.style.opacity = Math.random() * 0.6 + 0.4;
+        s.style.fontSize = (Math.random() * 14 + 10) + 'px';
+        s.style.animationDelay = Math.random() * 5 + 's';
+        container.appendChild(s);
+    }
+}
+
+function removeSnow() {
+    document.querySelectorAll('.snowflake').forEach(s => s.remove());
+}
+
+window.copyPhone = function() {
+    navigator.clipboard.writeText('8-920-227-56-76').then(() => {
+        alert('✅ Номер скопирован: 8-920-227-56-76');
+    }).catch(() => {
+        alert('Номер: 8-920-227-56-76');
+    });
+};
+
+function animate() {
+    requestAnimationFrame(animate);
+
+    if (currentBlock && currentBlock.moving) {
+        if (currentBlock.direction === 'x') {
+            currentBlock.mesh.position.x += speed;
+            if (currentBlock.mesh.position.x > 6 || currentBlock.mesh.position.x < -6) {
+                speed = -speed;
+            }
+        } else {
+            currentBlock.mesh.position.z += speed;
+            if (currentBlock.mesh.position.z > 6 || currentBlock.mesh.position.z < -6) {
+                speed = -speed;
+            }
+        }
+
+        tickTimer++;
+        if (tickTimer % Math.max(8, Math.floor(30 - speed * 80)) === 0) {
+            playSfx('tick');
+        }
+    }
+
+    fallingBlocks.forEach((b, i) => {
+        if (b.falling) {
+            b.velocityY -= 0.015;
+            b.mesh.position.y += b.velocityY;
+            b.mesh.position.x += b.velocityX;
+            b.mesh.position.z += b.velocityZ;
+            b.mesh.rotation.x += b.rotSpeedX;
+            b.mesh.rotation.z += b.rotSpeedZ;
+
+            if (b.mesh.position.y < -5) {
+                scene.remove(b.mesh);
+                fallingBlocks.splice(i, 1);
+            }
+        }
+    });
+
+    if (blocks.length > 0) {
+        const topBlock = blocks[blocks.length - 1];
+        cameraTargetY = topBlock.mesh.position.y + 5;
+    }
+    camera.position.y += (cameraTargetY - camera.position.y) * 0.05;
+    controls.target.y += (cameraTargetY - 2 - controls.target.y) * 0.05;
+    controls.update();
+
+    renderer.render(scene, camera);
+}
+
+init();
+</script>
+</body>
+</html>
